@@ -1,100 +1,138 @@
-'use strict';
+import puppeteer from "puppeteer";
+import axios from "axios";
+import cron from "node-cron";
 
-import puppeteer from 'puppeteer';
+const formLink =
+  "https://docs.google.com/forms/d/e/1FAIpQLSer_YcxVpPRMLGDR59x0-qpJ0fzkJUYQ-MAkeAxU8Vlqun9pg/viewform";
 
-const formLink = 'https://docs.google.com/forms/d/e/1FAIpQLSf_HwDrQBivEirlRIgrteLsqpFpE_B-ldb8JTEdMOhxx48xmA/viewform';
+// Replace with your Line Notify access token
+const lineNotifyAccessToken = "UTwKM8kuw4LMzc76g0FjKlu9MvDTDbrqlEkLokSNcMe";
 
-// Multiple form submission using a loop
-// for (let i = 0;i<5;i++){
-//     fill(formLink,true);
-// }
+// cron.schedule("20-30 9 * * 1-5", () => {
+//   // Generate a random time between 9:20 AM and 9:30 AM
+//   const randomMinutes = Math.floor(Math.random() * 11) + 20;
+//   const startTime = `09:${randomMinutes.toString().padStart(2, "0")}`;
 
-fill(formLink,true);
+//   console.log(`Starting bot at ${startTime}`);
+
+//   // Wait until the specified start time
+//   setTimeout(async () => {
+//     await fill(formLink, true);
+//   }, getMillisecondsUntil(startTime));
+// });
+
+// Schedule the bot to run every 1 minute
+cron.schedule("* * * * *", () => {
+    console.log("Starting bot");
+    fill(formLink, true);
+  });
+
+fill(formLink, true);
 
 async function fill(formLink, submitForm) {
-
-    let dropdownAnswer = 'Choice 1';
-
-    let browser;
-
-        try {
-            browser = await puppeteer.launch({
-                headless: true,
-                //headless option runs the browser in the command line
-                //use false option to launch browser with graphic interface
-                args: ['--no-sandbox'],
-                // slowMo: 100
-            });
-
-
-            const page = await browser.newPage();
-            console.log("Opening form");
-
-            // Opening Form
-            await page.goto(formLink, {waitUntil: 'networkidle2'});
-            const title = await page.$eval("title", el => el.textContent);
-            console.log("form opened");
-            console.log("Form Title: " + title);
-
-            // To answer questions, first identify selectors of all similar questions type
-            // then use the selector index to select the question
-            // then perform an action to answer the question,
-            // e.g. click or type an answer
-
-
-            // Short Answer questions
-            const selectors = await page.$$('.quantumWizTextinputPaperinputContentArea');
-            await selectors[0].click();
-            await page.keyboard.type('Answer to first short answer question');
-            console.log("inserting answer to first short answer question");
-            await selectors[1].click();
-            await page.keyboard.type('Answer to second short answer question');
-            console.log("inserting answer to second short answer question");
-
-            //MCQ and Checkbox Questions
-            const selectors2 = await page.$$('.docssharedWizToggleLabeledLabelWrapper');
-            console.log("identifying selectors of all mcq and checkbox questions ");
-            await selectors2[1].click();
-            console.log("Answered first MCQ question");
-            await selectors2[3].click();
-            console.log("Answered second mcq question");
-            await selectors2[5].click();
-            console.log("ticked 1st checkbox");
-            await selectors2[6].click();
-            console.log("ticked 2nd checkbox");
-            await selectors2[7].click();
-            console.log("ticked 3rd checkbox");
-            await selectors2[8].click();
-            console.log("ticked 4th checkbox");
-            await page.click(".quantumWizMenuPaperselectContent");
-
-            // Dropdown menu questions
-            await page.waitForTimeout(400);
-            await page.click('.exportSelectPopup.quantumWizMenuPaperselectPopup.appsMaterialWizMenuPaperselectPopup>.quantumWizMenuPaperselectOption.appsMaterialWizMenuPaperselectOption.freebirdThemedSelectOptionDarkerDisabled.exportOption[data-value="'+ dropdownAnswer+'"]');
-            console.log("answered dropdown question");
-
-            // Form Submission
-            if(submitForm){
-                await page.waitForTimeout(500);
-                await page.click(".appsMaterialWizButtonPaperbuttonFocusOverlay");
-                await page.waitForNavigation();
-                const submissionPage = await page.url();
-                console.log(submissionPage);
-                if (submissionPage.includes("formResponse")) {
-                    console.log("Form Submitted Successfully");
-                }
-            }
-
-            await page.close();
-            await browser.close();
-
-
-        } catch (error) {
-
-            console.error(error.message);
-
+  let dropdownAnswer = "Choice 1";
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox"],
+    });
+    const page = await browser.newPage();
+    console.log("Opening form");
+    // Opening Form
+    await page.goto(formLink, { waitUntil: "networkidle2" });
+    const title = await page.$eval("title", (el) => el.textContent);
+    console.log("Form opened");
+    console.log("Form Title: " + title);
+    // Short Answer questions
+    const selectors = await page.$$(".docssharedWizToggleLabeledContainer");
+    for (let i = 0; i < selectors.length; i++) {
+      const text = await page.evaluate(
+        (element) => element.textContent,
+        selectors[i]
+      );
+      console.log(`Selector ${i}: ${text}`);
+      if (text.includes("นายอภิเชษฐ อัคราพุฒิธราดล")) {
+        await selectors[i].click();
+        console.log(`Clicked on Selector ${i} ${text}`);
+      }
+      if (text.includes("9.30-18.00")) {
+        await selectors[i].click();
+        console.log(`Clicked on Selector ${i} ${text}`);
+      }
+    }
+    // Form Submission
+    if (submitForm) {
+      await page.waitForTimeout(500);
+      const submitButtons = await page.$$(".uArJ5e");
+      for (let i = 0; i < submitButtons.length; i++) {
+        const text = await page.evaluate(
+          (element) => element.textContent,
+          submitButtons[i]
+        );
+        if (text.includes("ส่ง")) {
+          await submitButtons[i].click();
+          console.log(`Clicked on Selector ${i} ${text}`);
         }
+      }
+      await page.waitForNavigation();
+      const submissionPage = await page.url();
+      console.log(submissionPage);
+      if (submissionPage.includes("formResponse")) {
+        console.log("Form Submitted Successfully");
+        sendLineNotification("ล่งเวลาเข้างานสำเร็จ");
+      } else {
+        console.log("Form Submission Failed");
+        sendLineNotification(
+          "ผิดพลาด!!! ล่งเวลาเข้างานไม่สำเร็จ submit fail โปรดลลเวลาด้วยตัวเอง"
+        );
+      }
+    }
+    await page.close();
+    await browser.close();
+  } catch (error) {
+    console.error(error.message);
+    sendLineNotification(
+      "ผิดพลาด!!! ล่งเวลาเข้างานไม่สำเร็จ โปรดลลเวลาด้วยตัวเอง"
+    );
+    sendLineNotification(error.message);
+  }
+}
 
+async function sendLineNotification(message) {
+  try {
+    const response = await axios.post(
+      "https://notify-api.line.me/api/notify",
+      `message=${encodeURIComponent(message)}`,
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `Bearer ${lineNotifyAccessToken}`,
+        },
+      }
+    );
+    console.log("Line notification sent:", response.data);
+  } catch (error) {
+    console.error("Failed to send Line notification:", error.message);
+  }
+}
 
+// Helper function to calculate the milliseconds until a specific time
+function getMillisecondsUntil(time) {
+  const now = new Date();
+  const targetTime = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    time.split(":")[0],
+    time.split(":")[1]
+  );
 
+  let delay = targetTime.getTime() - now.getTime();
+  if (delay < 0) {
+    // If the target time is in the past, schedule for the next day
+    delay += 24 * 60 * 60 * 1000;
+  }
+
+  return delay;
 }
